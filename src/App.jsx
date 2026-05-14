@@ -223,14 +223,16 @@ function MemberCard({ member, weekData, onUpdate, onRemove, currentWeek, challen
   const [open, setOpen] = useState(false)
   const [viewWeek, setViewWeek] = useState(currentWeek)
 
-  const weekSummary = weekData.map(wd => {
-    if (!wd) return { total: 0, visitCount: 0, attendPt: 0, clearPt: 0 }
+  // 항상 8주치 배열 보장 (빈 슬롯 채우기)
+  const safeWeekData = Array.from({ length: TOTAL_WEEKS }, (_, i) => weekData[i] || { visits: [], clears: {} })
+
+  const weekSummary = safeWeekData.map(wd => {
     const vs = new Set(wd.visits || [])
     const chs = challenges.map(ch => ({ ...ch, cleared: parseFloat(wd.clears?.[ch.id] || 0) >= ch.clear }))
     return calcWeekPts(vs, chs)
   })
   const totalPts = calcTotal(weekSummary)
-  const curWd = weekData[currentWeek] || {}
+  const curWd = safeWeekData[currentWeek] || {}
   const curVisits = new Set(curWd.visits || [])
   const curChs = challenges.map(ch => ({ ...ch, cleared: parseFloat(curWd.clears?.[ch.id] || 0) >= ch.clear }))
   const { visitCount } = calcWeekPts(curVisits, curChs)
@@ -286,7 +288,7 @@ function MemberCard({ member, weekData, onUpdate, onRemove, currentWeek, challen
               )
             })}
           </div>
-          <SelfRecord member={member} weekData={weekData} weekIdx={viewWeek} onUpdate={onUpdate} challenges={challenges} saving={saving} />
+          <SelfRecord member={member} weekData={safeWeekData} weekIdx={viewWeek} onUpdate={onUpdate} challenges={challenges} saving={saving} />
         </div>
       )}
     </div>
@@ -300,7 +302,7 @@ function LiveRank({ members, allWeekData, currentWeek, challenges }) {
   const [selWeek, setSelWeek] = useState('all')
 
   const getStats = (m) => {
-    const wd = allWeekData[m.id] || []
+    const wd = Array.from({ length: TOTAL_WEEKS }, (_, i) => (allWeekData[m.id] || [])[i] || { visits: [], clears: {} })
     if (selWeek === 'all') {
       const weeks = wd.map(w => {
         if (!w) return null
