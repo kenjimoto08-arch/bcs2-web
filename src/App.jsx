@@ -2,12 +2,24 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from './supabase'
 
 // ── 상수
-const DEFAULT_CHALLENGES = [
-  { id: 'plank',   name: '플랭크',        icon: '⏱',  unit: '초', clear: 60,  tip: '60초 이상' },
-  { id: 'squat',   name: '맨몸 스쿼트',   icon: '🏋️', unit: '회', clear: 20,  tip: '20회 이상' },
-  { id: 'incline', name: '인클라인 워킹', icon: '🚶',  unit: '분', clear: 20,  tip: '경사5↑ 20분 이상' },
+
+// ── 주차별 미션
+const WEEKLY_MISSIONS = [
+  { week: 1, title: '🏃 한강 마포런 러닝 미션', date: '5/16(토)~5/17(일)', desc: '오전 10시 · 한강 마포 구간', color: '#2979FF' },
+  { week: 2, title: '💪 스쿼트 & 푸쉬 챌린지', date: '5/23(토) 오후 2~4시', desc: '남: 스쿼트100 푸쉬업100 러닝2.5km / 여: 스쿼트80 푸쉬업80 러닝2km', color: '#E8524A' },
+  { week: 3, title: '🔥 데드리프트 챌린지', date: '5/30(토) 오후 2~4시', desc: '남: 데드리프트100 러닝2.5km / 여: 데드리프트80 러닝2km', color: '#FF6D00' },
+  { week: 4, title: '🦾 지옥의 복근 챌린지', date: '6/6(토) 오후 2~4시', desc: '복근 서킷 미션 · 제한 시간 내 미션 수행', color: '#AA00FF' },
+  { week: 5, title: '🏅 10K 러닝 챌린지', date: '6/13(토)', desc: '장거리 러닝 · 상세 코스 추후 공지', color: '#00C853' },
+  { week: 6, title: '🎉 깜짝 이벤트', date: '6주차', desc: '마지막 주 특별 미션 · 추가 점수 및 특별 보상 예정', color: '#FFD700' },
 ]
-const TOTAL_WEEKS = 8
+
+const DEFAULT_CHALLENGES = [
+  { id: 'squat',    name: '스쿼트',    icon: '🏋️', unit: '회', clear: 80,  tip: '남 100개 / 여 80개' },
+  { id: 'pushup',   name: '푸쉬업',    icon: '💪',  unit: '회', clear: 80,  tip: '남 100개 / 여 80개' },
+  { id: 'deadlift', name: '데드리프트', icon: '🔥',  unit: '회', clear: 80,  tip: '남 100개 / 여 80개' },
+  { id: 'running',  name: '러닝',       icon: '🏃',  unit: 'km', clear: 2,   tip: '남 2.5km / 여 2km' },
+]
+const TOTAL_WEEKS = 6
 const DAYS = ['월','화','수','목','금','토','일']
 const MEMBER_COLORS = ['#111','#E8524A','#2979FF','#00C853','#FF6D00','#AA00FF','#00B8D4','#FF1744','#6D4C41','#546E7A']
 const ICONS = ['⏱','🏋️','🚶','💪','🔥','🧘','🚴','🏊','🤸','🥊','⚽','🏃','🎯','🧗','🏌️']
@@ -332,7 +344,7 @@ function LiveRank({ members, allWeekData, currentWeek, challenges }) {
         <div style={{ ...BH, fontSize: 16, color: '#111', letterSpacing: 2, marginBottom: 12 }}>{div === 'male' ? '♂ 남자부' : '♀ 여자부'}</div>
         <div style={{ background: '#fff', border: '2px solid #e8e8e8', borderRadius: 14, overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
           <div style={{ padding: '14px 20px', background: '#f5f5f5', borderBottom: '2px solid #e8e8e8', display: 'flex', gap: 20, flexWrap: 'wrap' }}>
-            {[['🔥 주 5회↑','+2P'],['✅ 주 3~4회','+1P'],['💪 클리어 1종목','+0.5P']].map(([l,p]) => (
+            {[['🔥 주 5회↑','+2P'],['✅ 주 3~4회','+1P'],['💪 미션 클리어','+0.5P']].map(([l,p]) => (
               <span key={l} style={{ ...PT, fontSize: 14, color: '#555' }}>{l} <strong style={{ color: '#111' }}>{p}</strong></span>
             ))}
           </div>
@@ -427,14 +439,11 @@ export default function App() {
   const [saving, setSaving] = useState(false)
   const [isAdmin, setIsAdmin] = useState(false)
   const [showLoginModal, setShowLoginModal] = useState(false)
+  const [notice, setNotice] = useState('')
+  const [noticeInput, setNoticeInput] = useState('')
+  const [showNoticeEdit, setShowNoticeEdit] = useState(false)
 
-  const [startDate] = useState(() => {
-    const today = new Date()
-    const diff = today.getDay() === 0 ? -6 : 1 - today.getDay()
-    const mon = new Date(today)
-    mon.setDate(today.getDate() + diff)
-    return mon.toISOString().split('T')[0]
-  })
+  const [startDate] = useState('2026-05-15')
   const currentWeek = getCurrentWeek(startDate)
 
   // ── 초기 데이터 로드
@@ -457,9 +466,10 @@ export default function App() {
           setAllWeekData(map)
         }
 
-        // 종목 설정
-        const { data: sData } = await supabase.from('settings').select('challenges').eq('id', 1).single()
+        // 종목 설정 + 공지사항
+        const { data: sData } = await supabase.from('settings').select('challenges,notice').eq('id', 1).single()
         if (sData?.challenges) setChallenges(sData.challenges)
+        if (sData?.notice !== undefined) setNotice(sData.notice || '')
       } catch (e) { console.error('load error', e) }
       setLoading(false)
     }
@@ -490,6 +500,7 @@ export default function App() {
     const settingsSub = supabase.channel('settings-channel')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, payload => {
         if (payload.new?.challenges) setChallenges(payload.new.challenges)
+        if (payload.new?.notice !== undefined) setNotice(payload.new.notice || '')
       }).subscribe()
 
     return () => { memberSub.unsubscribe(); recordSub.unsubscribe(); settingsSub.unsubscribe() }
@@ -547,6 +558,13 @@ export default function App() {
     setSaving(false)
   }
 
+  // ── 공지사항 저장
+  const saveNotice = async () => {
+    setNotice(noticeInput)
+    setShowNoticeEdit(false)
+    await supabase.from('settings').upsert({ id: 1, challenges, notice: noticeInput, updated_at: new Date().toISOString() })
+  }
+
   const filtered = members.filter(m => division === 'all' || m.division === division)
 
   const topOverall = [...members].map(m => {
@@ -573,14 +591,14 @@ export default function App() {
         <div style={{ maxWidth: 960, margin: '0 auto' }}>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 20, flexWrap: 'wrap' }}>
             <div>
-              <div style={{ ...BH, fontSize: 12, letterSpacing: 5, color: '#888', marginBottom: 6 }}>BODY CHALLENGE S2</div>
+              <div style={{ ...BH, fontSize: 12, letterSpacing: 5, color: '#888', marginBottom: 6 }}>🔥 로얄짐 바디챌린지</div>
               <h1 style={{ ...BN, fontSize: 'clamp(48px,7vw,80px)', margin: 0, lineHeight: 0.85, letterSpacing: 3, color: '#fff' }}>
-                WEEKLY<br />ATTENDANCE
+                ROYAL GYM<br /><span style={{ color: '#E8524A' }}>CHALLENGE</span>
               </h1>
             </div>
             <div style={{ background: '#222', border: '1px solid #333', borderRadius: 12, padding: '14px 18px', minWidth: 210 }}>
               <div style={{ ...BH, fontSize: 11, letterSpacing: 3, color: '#777', marginBottom: 10 }}>이번 주 점수 기준</div>
-              {[['🔥 주 5회 이상 인증','+2P'],['✅ 주 3~4회 인증','+1P'],['💪 챌린지 클리어 1종목','+0.5P']].map(([l,p]) => (
+              {[['🔥 주 5회 이상 출석','+2P'],['✅ 주 3~4회 출석','+1P'],['💪 주차 미션 클리어','+0.5P']].map(([l,p]) => (
                 <div key={l} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 7, gap: 12 }}>
                   <span style={{ ...PT, fontSize: 14, color: '#ccc' }}>{l}</span>
                   <span style={{ ...BN, fontSize: 20, color: '#fff', lineHeight: 1, flexShrink: 0 }}>{p}</span>
@@ -600,7 +618,7 @@ export default function App() {
               </div>
             )}
             <div style={{ marginLeft: 'auto', alignSelf: 'flex-end' }}>
-              <div style={{ ...BH, fontSize: 12, color: '#aaa', marginBottom: 6 }}>{currentWeek+1}주차 진행중 🔴{saving && ' · 저장중...'}</div>
+              <div style={{ ...BH, fontSize: 12, color: '#aaa', marginBottom: 6 }}>{currentWeek+1}주차 진행중 🔴 (총 6주){saving && ' · 저장중...'}</div>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {challenges.map(ch => (
                   <div key={ch.id} style={{ background: '#333', borderRadius: 8, padding: '5px 10px', ...PT, fontSize: 12, color: '#ccc' }}>{ch.icon} {ch.name}</div>
@@ -644,6 +662,44 @@ export default function App() {
         </div>
       </div>
 
+      {/* 공지사항 배너 */}
+      {(notice || isAdmin) && (
+        <div style={{ background: '#fff', borderBottom: '2px solid #e8e8e8' }}>
+          <div style={{ maxWidth: 960, margin: '0 auto', padding: '14px 24px', display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+            <span style={{ fontSize: 20, flexShrink: 0 }}>📢</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ ...BH, fontSize: 12, color: '#888', letterSpacing: 2, marginBottom: 4 }}>운영자 공지</div>
+              {showNoticeEdit && isAdmin ? (
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <input
+                    value={noticeInput}
+                    onChange={e => setNoticeInput(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && saveNotice()}
+                    placeholder="공지사항을 입력하세요..."
+                    style={{ flex: 1, minWidth: 200, background: '#f5f5f5', border: '2px solid #e0e0e0', color: '#111', padding: '8px 12px', ...PT, fontSize: 14, borderRadius: 8 }}
+                    autoFocus
+                  />
+                  <button onClick={saveNotice} style={{ background: '#111', color: '#fff', border: 'none', padding: '8px 18px', ...BH, fontSize: 12, cursor: 'pointer', borderRadius: 8 }}>저장</button>
+                  <button onClick={() => setShowNoticeEdit(false)} style={{ background: '#f5f5f5', color: '#888', border: '2px solid #e0e0e0', padding: '8px 14px', ...BH, fontSize: 12, cursor: 'pointer', borderRadius: 8 }}>취소</button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ ...PT, fontSize: 15, color: notice ? '#111' : '#bbb', flex: 1 }}>
+                    {notice || '(공지사항 없음)'}
+                  </span>
+                  {isAdmin && (
+                    <button onClick={() => { setNoticeInput(notice); setShowNoticeEdit(true) }}
+                      style={{ background: 'none', border: '1px solid #ddd', color: '#888', padding: '5px 12px', ...BH, fontSize: 11, cursor: 'pointer', borderRadius: 6, flexShrink: 0 }}>
+                      ✏️ 수정
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 운영자 로그인 모달 */}
       {showLoginModal && (
         <AdminLoginModal
@@ -651,6 +707,47 @@ export default function App() {
           onClose={() => setShowLoginModal(false)}
         />
       )}
+
+      {/* 주차별 미션 배너 */}
+      <div style={{ background: '#fff', borderBottom: '2px solid #e8e8e8' }}>
+        <div style={{ maxWidth: 960, margin: '0 auto', padding: '16px 24px' }}>
+          <div style={{ ...BH, fontSize: 11, letterSpacing: 3, color: '#888', marginBottom: 12 }}>주차별 미션</div>
+          <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
+            {WEEKLY_MISSIONS.map(m => {
+              const isCurrent = m.week === currentWeek + 1
+              return (
+                <div key={m.week} style={{
+                  flexShrink: 0, minWidth: 180,
+                  background: isCurrent ? m.color : '#f5f5f5',
+                  border: `2px solid ${isCurrent ? m.color : '#e8e8e8'}`,
+                  borderRadius: 10, padding: '12px 14px',
+                  transition: 'all 0.2s',
+                }}>
+                  <div style={{ ...BH, fontSize: 10, color: isCurrent ? 'rgba(255,255,255,0.8)' : '#bbb', marginBottom: 4 }}>{m.week}주차 {isCurrent ? '🔴 진행중' : ''}</div>
+                  <div style={{ ...BH, fontSize: 13, color: isCurrent ? '#fff' : '#333', marginBottom: 4 }}>{m.title}</div>
+                  <div style={{ ...PT, fontSize: 11, color: isCurrent ? 'rgba(255,255,255,0.85)' : '#888', lineHeight: 1.5 }}>{m.date}</div>
+                  <div style={{ ...PT, fontSize: 10, color: isCurrent ? 'rgba(255,255,255,0.7)' : '#aaa', marginTop: 4, lineHeight: 1.5 }}>{m.desc}</div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* 상품 안내 */}
+      <div style={{ background: '#111' }}>
+        <div style={{ maxWidth: 960, margin: '0 auto', padding: '14px 24px', display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'center' }}>
+          <span style={{ ...BH, fontSize: 11, letterSpacing: 3, color: '#555' }}>챌린지 상품</span>
+          {[['🥇','1등','운동화'],['🥈','2등','닭가슴살 팩'],['🥉','3등','헬스장 이용권']].map(([emoji,rank,prize]) => (
+            <div key={rank} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 18 }}>{emoji}</span>
+              <span style={{ ...BH, fontSize: 13, color: '#fff' }}>{rank}</span>
+              <span style={{ ...PT, fontSize: 12, color: '#aaa' }}>{prize}</span>
+            </div>
+          ))}
+          <span style={{ ...PT, fontSize: 11, color: '#444', marginLeft: 'auto' }}>5/15 ~ 6/25 · 총 6주</span>
+        </div>
+      </div>
 
       <div style={{ maxWidth: 960, margin: '0 auto', padding: '28px 24px' }}>
         {(tab === 'rank' || tab === 'challenge') && (
