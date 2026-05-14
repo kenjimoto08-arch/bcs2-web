@@ -369,6 +369,48 @@ function LiveRank({ members, allWeekData, currentWeek, challenges }) {
 }
 
 // ══════════════════════════════════════════
+//  🔐 운영자 비밀번호 모달
+// ══════════════════════════════════════════
+const ADMIN_PASSWORD = '1004'
+
+function AdminLoginModal({ onSuccess, onClose }) {
+  const [pw, setPw] = useState('')
+  const [error, setError] = useState(false)
+
+  const handleLogin = () => {
+    if (pw === ADMIN_PASSWORD) {
+      onSuccess()
+    } else {
+      setError(true)
+      setTimeout(() => setError(false), 1500)
+    }
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+      <div style={{ background: '#fff', borderRadius: 16, padding: '36px 32px', width: 320, boxShadow: '0 8px 40px rgba(0,0,0,0.2)' }}>
+        <div style={{ ...BH, fontSize: 20, color: '#111', marginBottom: 8 }}>🔐 운영자 로그인</div>
+        <div style={{ ...PT, fontSize: 13, color: '#888', marginBottom: 24 }}>기록 입력은 운영자만 가능해요</div>
+        <input
+          type="password"
+          placeholder="비밀번호 입력"
+          value={pw}
+          onChange={e => setPw(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && handleLogin()}
+          style={{ width: '100%', background: '#f5f5f5', border: `2px solid ${error ? '#E8524A' : '#e0e0e0'}`, color: '#111', padding: '12px 14px', ...PT, fontSize: 15, borderRadius: 8, marginBottom: 8, outline: 'none' }}
+          autoFocus
+        />
+        {error && <div style={{ ...PT, fontSize: 12, color: '#E8524A', marginBottom: 8 }}>비밀번호가 틀렸어요!</div>}
+        <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+          <button onClick={onClose} style={{ flex: 1, background: '#f5f5f5', border: '2px solid #e0e0e0', color: '#888', padding: '11px 0', ...BH, fontSize: 13, cursor: 'pointer', borderRadius: 8 }}>취소</button>
+          <button onClick={handleLogin} style={{ flex: 2, background: '#111', border: 'none', color: '#fff', padding: '11px 0', ...BH, fontSize: 13, cursor: 'pointer', borderRadius: 8 }}>확인</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════
 //  메인 앱
 // ══════════════════════════════════════════
 export default function App() {
@@ -381,6 +423,8 @@ export default function App() {
   const [newDiv, setNewDiv] = useState('male')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [showLoginModal, setShowLoginModal] = useState(false)
 
   const [startDate] = useState(() => {
     const today = new Date()
@@ -555,17 +599,48 @@ export default function App() {
             </div>
           </div>
 
-          <div style={{ display: 'flex', marginTop: 24 }}>
-            {[['rank','🏆 순위'],['challenge','💪 기록'],['settings','⚙️ 종목설정']].map(([t,l]) => (
-              <button key={t} onClick={() => setTab(t)} style={{
-                background: tab===t?'#fff':'transparent', border: 'none',
-                color: tab===t?'#111':'#888', ...BH, fontSize: 14, letterSpacing: 2,
-                padding: '14px 22px', cursor: 'pointer', borderRadius: tab===t?'8px 8px 0 0':'0',
-              }}>{l}</button>
-            ))}
+          <div style={{ display: 'flex', alignItems: 'center', marginTop: 24 }}>
+            {/* 순위 탭은 누구나 */}
+            <button onClick={() => setTab('rank')} style={{
+              background: tab==='rank'?'#fff':'transparent', border: 'none',
+              color: tab==='rank'?'#111':'#888', ...BH, fontSize: 14, letterSpacing: 2,
+              padding: '14px 22px', cursor: 'pointer', borderRadius: tab==='rank'?'8px 8px 0 0':'0',
+            }}>🏆 순위</button>
+
+            {/* 기록/설정 탭은 운영자만 */}
+            {isAdmin ? (
+              <>
+                {[['challenge','💪 기록'],['settings','⚙️ 종목설정']].map(([t,l]) => (
+                  <button key={t} onClick={() => setTab(t)} style={{
+                    background: tab===t?'#fff':'transparent', border: 'none',
+                    color: tab===t?'#111':'#888', ...BH, fontSize: 14, letterSpacing: 2,
+                    padding: '14px 22px', cursor: 'pointer', borderRadius: tab===t?'8px 8px 0 0':'0',
+                  }}>{l}</button>
+                ))}
+                <button onClick={() => { setIsAdmin(false); setTab('rank') }} style={{
+                  marginLeft: 'auto', background: 'transparent', border: '1px solid #444',
+                  color: '#888', ...BH, fontSize: 11, letterSpacing: 1,
+                  padding: '8px 14px', cursor: 'pointer', borderRadius: 6, marginBottom: 4,
+                }}>🔓 로그아웃</button>
+              </>
+            ) : (
+              <button onClick={() => setShowLoginModal(true)} style={{
+                marginLeft: 'auto', background: 'transparent', border: '1px solid #444',
+                color: '#888', ...BH, fontSize: 11, letterSpacing: 1,
+                padding: '8px 14px', cursor: 'pointer', borderRadius: 6, marginBottom: 4,
+              }}>🔐 운영자</button>
+            )}
           </div>
         </div>
       </div>
+
+      {/* 운영자 로그인 모달 */}
+      {showLoginModal && (
+        <AdminLoginModal
+          onSuccess={() => { setIsAdmin(true); setShowLoginModal(false); setTab('challenge') }}
+          onClose={() => setShowLoginModal(false)}
+        />
+      )}
 
       <div style={{ maxWidth: 960, margin: '0 auto', padding: '28px 24px' }}>
         {(tab === 'rank' || tab === 'challenge') && (
@@ -579,7 +654,7 @@ export default function App() {
 
         {tab === 'rank' && <LiveRank members={filtered.length ? filtered : members} allWeekData={allWeekData} currentWeek={currentWeek} challenges={challenges} />}
 
-        {tab === 'challenge' && (
+        {tab === 'challenge' && isAdmin && (
           <>
             <div style={{ background: '#fff', border: '2px solid #e8e8e8', borderRadius: 12, padding: 20, marginBottom: 24, boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
               <div style={{ ...BH, fontSize: 14, color: '#555', letterSpacing: 2, marginBottom: 14 }}>참가자 추가</div>
@@ -617,7 +692,7 @@ export default function App() {
           </>
         )}
 
-        {tab === 'settings' && <ChallengeSettings challenges={challenges} onSave={saveChallenges} saving={saving} />}
+        {tab === 'settings' && isAdmin && <ChallengeSettings challenges={challenges} onSave={saveChallenges} saving={saving} />}
 
         <div style={{ height: 60 }} />
       </div>
