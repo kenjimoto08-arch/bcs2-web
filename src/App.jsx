@@ -502,11 +502,19 @@ export default function App() {
     const color = MEMBER_COLORS.find(c => !used.includes(c)) || MEMBER_COLORS[members.length % MEMBER_COLORS.length]
     const nm = { id: Date.now().toString(), name: newName.trim(), division: newDiv, color }
     setNewName('')
+    // 로컬 상태 즉시 반영
+    setMembers(prev => [...prev, nm])
+    setAllWeekData(prev => ({ ...prev, [nm.id]: Array.from({ length: TOTAL_WEEKS }, () => ({ visits: [], clears: {} })) }))
+    // DB에도 저장
     await supabase.from('members').insert(nm)
   }
 
   // ── 참가자 삭제
   const removeMember = async (id) => {
+    // 로컬 상태 즉시 반영 (화면 바로 업데이트)
+    setMembers(prev => prev.filter(m => m.id !== id))
+    setAllWeekData(prev => { const n = { ...prev }; delete n[id]; return n })
+    // DB에서도 삭제
     await supabase.from('members').delete().eq('id', id)
   }
 
